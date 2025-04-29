@@ -1,0 +1,36 @@
+{
+  "name": "apartment-bot",
+  "version": "1.0.0",
+  "description": "A bot that monitors and automatically applies for new apartment listings",
+  "main": "dist/app.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/app.js",
+    "dev": "ts-node src/app.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "apartment",
+    "bot",
+    "automation"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@types/axios": "^0.14.0",
+    "@types/node": "^20.11.19",
+    "@types/node-cron": "^3.0.11",
+    "@types/node-telegram-bot-api": "^0.64.0",
+    "@types/sqlite3": "^3.1.11",
+    "axios": "^1.6.7",
+    "dotenv": "^16.4.4",
+    "node-cron": "^3.0.3",
+    "node-telegram-bot-api": "^0.64.0",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7",
+    "typescript": "^5.3.3"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.2"
+  }
+}
