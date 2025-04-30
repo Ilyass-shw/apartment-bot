@@ -171,12 +171,18 @@ async function main() {
 
     initializeBot(botToken, chatId);
 
-    // Run every 20 seconds, all day, every day
+    // Run every 2 minutes from 7:00 to 18:59, Monday to Friday, Europe/Berlin time
     console.log("⏰ Setting up cron job...");
-    cron.schedule("*/20 * * * * *", async () => {
-      console.log("🔄 Running scheduled check...");
-      await processNewListings();
-    });
+    cron.schedule(
+      "*/2 7-18 * * 1-5",
+      async () => {
+        console.log("🔄 Running scheduled check...");
+        await processNewListings();
+      },
+      {
+        timezone: "Europe/Berlin",
+      }
+    );
     console.log("✅ Bot setup completed successfully");
   } catch (error) {
     console.error("❌ Error during bot initialization:", error);
