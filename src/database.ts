@@ -7,6 +7,7 @@ let sqliteDb: any = null;
 
 export async function initializeDatabase() {
   console.log("💾 Starting database initialization...");
+  console.log("DATABASE_URL:", process.env.DATABASE_URL);
   try {
     // Use PostgreSQL in production (Railway), SQLite locally
     if (process.env.DATABASE_URL) {
