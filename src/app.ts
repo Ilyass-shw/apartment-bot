@@ -20,7 +20,7 @@ const requiredEnvVars = [
   "APPLICANT_FIRST_NAME",
   "APPLICANT_PHONE",
   "APPLICANT_EMAIL",
-  "APPLICATION_TEXT",
+  "DATABASE_URL",
 ];
 
 const missingEnvVars = requiredEnvVars.filter(
