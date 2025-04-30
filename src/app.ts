@@ -38,6 +38,15 @@ if (missingEnvVars.length > 0) {
 const API_URL = "https://www.wohnraumkarte.de/api/getImmoList";
 const APPLICATION_URL = "https://www.wohnraumkarte.de/Api/sendMailRequest";
 
+// Hardcoded application text
+const APPLICATION_TEXT = `Sehr geehrte Damen und Herren,
+
+meine Freundin Luisa (Psychotherapeutin) und ich (Senior Software Engineer) suchen derzeit eine langfristige Mietwohnung in Berlin und sind sehr an Ihrem Angebot interessiert. Unser gemeinsames Nettoeinkommen liegt bei über 5.100 € monatlich, und wir haben Ersparnisse von 40.000 €, die kontinuierlich wachsen. Wir sind Nichtraucher, haben keine Haustiere und legen großen Wert auf einen gepflegten und ruhigen Wohnstil.
+Da Luisas Eltern in Berlin leben, sind wir eng mit der Stadt verbunden und möchten hier gerne dauerhaft leben. Über eine Rückmeldung und die Möglichkeit einer Besichtigung würden wir uns sehr freuen!
+
+Mit freundlichen Grüßen,
+Ilyass Fourkani & Luisa Pauline Angel`;
+
 async function fetchListings(): Promise<Apartment[]> {
   console.log("🔄 Fetching listings from API...");
   try {
@@ -90,7 +99,7 @@ async function sendApplication(apartment: Apartment) {
     )}&email=${encodeURIComponent(
       process.env.APPLICANT_EMAIL!
     )}&emailText=${encodeURIComponent(
-      process.env.APPLICATION_TEXT!
+      APPLICATION_TEXT
     )}&currentEmployment=angestellte&incomeType=1&monthlyNetIncome=M_3&referrer=DeuWo&dataSet=deuwo`;
 
     // Log the raw form data
