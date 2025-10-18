@@ -37,6 +37,13 @@ export async function initializeDatabase() {
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS degewo_listings (
+        id TEXT PRIMARY KEY,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
     console.log("✅ Database schema verified/created");
   } catch (error) {
     console.error("❌ Error initializing database:", error);
@@ -124,6 +131,42 @@ export async function markGewobagListingAsSeen(id: string) {
     console.log(`✅ Successfully marked Gewobag listing ${id} as seen`);
   } catch (error) {
     console.error(`❌ Error marking Gewobag listing ${id} as seen:`, error);
+    throw error;
+  }
+}
+
+// Degewo-specific database functions
+export async function isDegewoListingSeen(id: string): Promise<boolean> {
+  console.log(`🔍 Checking if Degewo listing ${id} has been seen...`);
+  try {
+    if (!pool) throw new Error("Database not initialized");
+    const result = await pool.query(
+      "SELECT id FROM degewo_listings WHERE id = $1",
+      [id]
+    );
+    const isSeen = result.rows.length > 0;
+    console.log(`📌 Degewo listing ${id} seen status: ${isSeen}`);
+    return isSeen;
+  } catch (error) {
+    console.error(
+      `❌ Error checking if Degewo listing ${id} has been seen:`,
+      error
+    );
+    throw error;
+  }
+}
+
+export async function markDegewoListingAsSeen(id: string) {
+  console.log(`📝 Marking Degewo listing ${id} as seen...`);
+  try {
+    if (!pool) throw new Error("Database not initialized");
+    await pool.query(
+      "INSERT INTO degewo_listings (id) VALUES ($1) ON CONFLICT (id) DO NOTHING",
+      [id]
+    );
+    console.log(`✅ Successfully marked Degewo listing ${id} as seen`);
+  } catch (error) {
+    console.error(`❌ Error marking Degewo listing ${id} as seen:`, error);
     throw error;
   }
 }

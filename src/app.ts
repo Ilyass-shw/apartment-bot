@@ -8,9 +8,16 @@ import {
   markListingAsSeen,
   isGewobagListingSeen,
   markGewobagListingAsSeen,
+  isDegewoListingSeen,
+  markDegewoListingAsSeen,
 } from "./database";
 import { initializeBot, sendApplicationConfirmation } from "./notifications";
-import { ApiResponse, Apartment, GewobagApartment } from "./types";
+import {
+  ApiResponse,
+  Apartment,
+  GewobagApartment,
+  DegewoApartment,
+} from "./types";
 
 // Load environment variables
 dotenv.config();
@@ -44,6 +51,16 @@ const APPLICATION_URL = "https://www.wohnraumkarte.de/Api/sendMailRequest";
 // Gewobag URL with your filter parameters
 const GEWOBAG_URL =
   "https://www.gewobag.de/fuer-mietinteressentinnen/mietangebote/?bezirke%5B%5D=charlottenburg-wilmersdorf-charlottenburg&bezirke%5B%5D=friedrichshain-kreuzberg&bezirke%5B%5D=friedrichshain-kreuzberg-friedrichshain&bezirke%5B%5D=friedrichshain-kreuzberg-kreuzberg&bezirke%5B%5D=mitte&bezirke%5B%5D=mitte-gesundbrunnen&bezirke%5B%5D=mitte-moabit&bezirke%5B%5D=mitte-wedding&bezirke%5B%5D=neukoelln&bezirke%5B%5D=neukoelln-britz&bezirke%5B%5D=neukoelln-buckow&bezirke%5B%5D=neukoelln-neukoelln&bezirke%5B%5D=neukoelln-rudow&bezirke%5B%5D=pankow&bezirke%5B%5D=pankow-pankow&bezirke%5B%5D=pankow-prenzlauer-berg&objekttyp%5B%5D=wohnung&gesamtmiete_von=&gesamtmiete_bis=1100&gesamtflaeche_von=34&gesamtflaeche_bis=80&zimmer_von=&zimmer_bis=&keinwbs=1&sort-by=";
+
+// Degewo constants
+const DEGEWO_URL = "https://www.degewo.de/immosuche";
+const DEGEWO_SEARCH_URL =
+  "https://www.degewo.de/immosuche#openimmo-search-result";
+
+// Session management for degewo
+let degewoSessionCookies: string | null = null;
+let degewoLastRefresh: number = 0;
+const DEGEWO_SESSION_REFRESH_INTERVAL = 30 * 60 * 1000; // 30 minutes
 
 // Hardcoded application text
 const APPLICATION_TEXT = `Sehr geehrte Damen und Herren,
@@ -333,6 +350,318 @@ async function processGewobagListings() {
   }
 }
 
+// Degewo functions
+async function refreshDegewoSession(): Promise<string> {
+  console.log("🔄 Refreshing Degewo session...");
+  try {
+    const response = await axios.get(DEGEWO_URL, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+      },
+      timeout: 30000,
+    });
+
+    const setCookieHeaders = response.headers["set-cookie"];
+    if (setCookieHeaders) {
+      const cookies = setCookieHeaders
+        .map((cookie) => cookie.split(";")[0])
+        .join("; ");
+      degewoSessionCookies = cookies;
+      degewoLastRefresh = Date.now();
+      console.log("✅ Degewo session refreshed successfully");
+      return cookies;
+    } else {
+      throw new Error("No cookies received from Degewo");
+    }
+  } catch (error) {
+    console.error("❌ Error refreshing Degewo session:", error);
+    throw error;
+  }
+}
+
+async function getDegewoSessionCookies(): Promise<string> {
+  const now = Date.now();
+
+  // Check if we need to refresh the session
+  if (
+    !degewoSessionCookies ||
+    now - degewoLastRefresh > DEGEWO_SESSION_REFRESH_INTERVAL
+  ) {
+    console.log("🔄 Degewo session expired or not initialized, refreshing...");
+    return await refreshDegewoSession();
+  }
+
+  return degewoSessionCookies;
+}
+
+async function fetchDegewoListings(): Promise<string> {
+  console.log("🔄 Fetching Degewo listings...");
+  try {
+    // Get fresh session cookies
+    const cookies = await getDegewoSessionCookies();
+
+    // Create the filtered payload (same as in parse-degewo-correct.js)
+    const formData = new URLSearchParams();
+    formData.append(
+      "tx_openimmo_immobilie[__referrer][@extension]",
+      "Openimmo"
+    );
+    formData.append(
+      "tx_openimmo_immobilie[__referrer][@controller]",
+      "Immobilie"
+    );
+    formData.append("tx_openimmo_immobilie[__referrer][@action]", "search");
+    formData.append(
+      "tx_openimmo_immobilie[__referrer][arguments]",
+      "YToyMzp7czo2OiJzZWFyY2giO3M6Njoic2VhcmNoIjtzOjQ6InBhZ2UiO3M6MToiMSI7czo4OiJsYXRpdHVkZSI7czowOiIiO3M6OToibG9uZ2l0dWRlIjtzOjA6IiI7czo4OiJsb2NhdGlvbiI7czowOiIiO3M6ODoiZGlzdGFuY2UiO3M6MToiMSI7czoxNDoibmV0dG9rYWx0bWlldGUiO3M6NToiMF85MDAiO3M6MjA6Im5ldHRva2FsdG1pZXRlX3N0YXJ0IjtzOjA6IiI7czoxODoibmV0dG9rYWx0bWlldGVfZW5kIjtzOjA6IiI7czo5OiJ3YXJtbWlldGUiO3M6MDoiIjtzOjE1OiJ3YXJtbWlldGVfc3RhcnQiO3M6MDoiIjtzOjEzOiJ3YXJtbWlldGVfZW5kIjtzOjA6IiI7czoxMToid29obmZsYWVjaGUiO3M6MDoiIiB..."
+    );
+    formData.append(
+      "tx_openimmo_immobilie[__referrer][@request]",
+      '{"@extension":"Openimmo","@controller":"Immobilie","@action":"search"}53dd4f0226cd686d2566450b5ce9bcce5bc791a4'
+    );
+    formData.append(
+      "tx_openimmo_immobilie[__trustedProperties]",
+      '{"search":1,"page":1,"latitude":1,"longitude":1,"distance":1,"nettokaltmiete":1,"nettokaltmiete_start":1,"nettokaltmiete_end":1,"warmmiete":1,"warmmiete_start":1,"warmmiete_end":1,"wohnflaeche":1,"anzahlZimmer":1,"ausstattung":[1,1,1,1,1,1,1,1,1,1,1,1,1,1],"wbsSozialwohnung":1,"sortBy":1,"sortOrder":1,"regionalerZusatz":[1,1,1,1,1,1,1,1,1,1,1,1,1]}1ce6a043e74a2d313c077ab1feb945feaf24c953'
+    );
+    formData.append("tx_openimmo_immobilie[search]", "search");
+    formData.append("tx_openimmo_immobilie[page]", "1");
+    formData.append("tx_openimmo_immobilie[latitude]", "");
+    formData.append("tx_openimmo_immobilie[longitude]", "");
+    formData.append("tx_openimmo_immobilie[location]", "");
+    formData.append("tx_openimmo_immobilie[distance]", "1");
+    formData.append("tx_openimmo_immobilie[nettokaltmiete]", "0_900");
+    formData.append("tx_openimmo_immobilie[nettokaltmiete_start]", "");
+    formData.append("tx_openimmo_immobilie[nettokaltmiete_end]", "");
+    formData.append("tx_openimmo_immobilie[warmmiete]", "");
+    formData.append("tx_openimmo_immobilie[warmmiete_start]", "");
+    formData.append("tx_openimmo_immobilie[warmmiete_end]", "");
+    formData.append("tx_openimmo_immobilie[wohnflaeche]", "");
+    formData.append("tx_openimmo_immobilie[wohnflaeche_start]", "");
+    formData.append("tx_openimmo_immobilie[wohnflaeche_end]", "");
+    formData.append("tx_openimmo_immobilie[anzahlZimmer]", "");
+    formData.append("tx_openimmo_immobilie[anzahlZimmer_start]", "");
+    formData.append("tx_openimmo_immobilie[anzahlZimmer_end]", "");
+    formData.append("tx_openimmo_immobilie[ausstattung][]", "");
+    formData.append("tx_openimmo_immobilie[ausstattung]", "");
+    formData.append("tx_openimmo_immobilie[wbsSozialwohnung]", "0");
+    formData.append(
+      "tx_openimmo_immobilie[sortBy]",
+      "immobilie_preise_warmmiete"
+    );
+    formData.append("tx_openimmo_immobilie[sortOrder]", "asc");
+    formData.append("tx_openimmo_immobilie[regionalerZusatz]", "");
+    formData.append(
+      "tx_openimmo_immobilie[regionalerZusatz][]",
+      "charlottenburg-wilmersdorf"
+    );
+    formData.append(
+      "tx_openimmo_immobilie[regionalerZusatz][]",
+      "friedrichshain-kreuzberg"
+    );
+    formData.append("tx_openimmo_immobilie[regionalerZusatz][]", "lichtenberg");
+    formData.append("tx_openimmo_immobilie[regionalerZusatz][]", "mitte");
+    formData.append("tx_openimmo_immobilie[regionalerZusatz][]", "neukolln");
+    formData.append("tx_openimmo_immobilie[regionalerZusatz][]", "pankow");
+    formData.append(
+      "tx_openimmo_immobilie[regionalerZusatz][]",
+      "tempelhof-schoneberg"
+    );
+
+    const response = await axios.post(DEGEWO_URL, formData, {
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Cookie: cookies,
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        Accept:
+          "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+        "Accept-Encoding": "gzip, deflate, br",
+        Referer: "https://www.degewo.de/immosuche",
+        Origin: "https://www.degewo.de",
+        Connection: "keep-alive",
+        "Upgrade-Insecure-Requests": "1",
+      },
+      timeout: 30000,
+    });
+
+    console.log(
+      `✅ Successfully fetched Degewo page (${response.data.length} characters)`
+    );
+    return response.data;
+  } catch (error) {
+    console.error("❌ Error fetching Degewo listings:", error);
+    throw error;
+  }
+}
+
+function parseDegewoHTML(html: string): DegewoApartment[] {
+  console.log("🔍 Parsing Degewo HTML...");
+  const $ = cheerio.load(html);
+  const apartments: DegewoApartment[] = [];
+
+  $(".article-list__item--immosearch").each((index, element) => {
+    const $apartment = $(element);
+
+    const apartment: DegewoApartment = {
+      id: $apartment.attr("id") || `degewo-${index}`,
+      address: $apartment.find(".article__meta").text().trim(),
+      title: $apartment.find(".article__title").text().trim(),
+      size: "",
+      rooms: "",
+      availableFrom: "",
+      rent: $apartment.find(".article__price-tag .price").text().trim(),
+      link: $apartment.find("a").attr("href") || "",
+      imageUrl:
+        $apartment.find("img").attr("src") ||
+        $apartment.find("img").attr("data-srcset")?.split(" ")[0] ||
+        "",
+      features: [],
+      googleMapsLink: "",
+    };
+
+    // Extract size, rooms, and available from
+    $apartment.find(".article__properties-item").each((i, prop) => {
+      const $prop = $(prop);
+      const text = $prop.find(".text").text().trim();
+      const svg =
+        $prop.find("svg use").attr("xlink:href") ||
+        $prop.find("svg use").attr("href");
+
+      if (svg === "#i-squares") {
+        apartment.size = text;
+      } else if (svg === "#i-room") {
+        apartment.rooms = text;
+      } else if (svg === "#i-calendar2") {
+        apartment.availableFrom = text;
+      }
+    });
+
+    // Extract features
+    $apartment.find(".article__tags-item").each((i, tag) => {
+      apartment.features.push($(tag).text().trim());
+    });
+
+    // Generate Google Maps link
+    if (apartment.address) {
+      apartment.googleMapsLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+        apartment.address
+      )}`;
+    }
+
+    // Only add if we have essential data
+    if (apartment.address && apartment.title && apartment.rent) {
+      apartments.push(apartment);
+    }
+  });
+
+  console.log(`✅ Parsed ${apartments.length} Degewo apartments`);
+  return apartments;
+}
+
+async function sendDegewoNotification(apartment: DegewoApartment) {
+  console.log(`📱 Sending Degewo notification for: ${apartment.title}`);
+
+  const featuresText =
+    apartment.features.length > 0
+      ? `\n🏷️ **Features:** ${apartment.features.join(", ")}`
+      : "";
+
+  const message = `🏠 **New Degewo Apartment Found!**
+
+📍 **Address:** ${apartment.address}
+📝 **Title:** ${apartment.title}
+🏠 **Size:** ${apartment.size || "N/A"}
+🛏️ **Rooms:** ${apartment.rooms || "N/A"}
+📅 **Available:** ${apartment.availableFrom || "N/A"}
+💰 **Rent:** ${apartment.rent}${featuresText}
+
+🔗 **View Listing:** [Click here](${apartment.link})
+🗺️ **Google Maps:** [View Location](${apartment.googleMapsLink})`;
+
+  try {
+    await sendApplicationConfirmation({
+      wrk_id: apartment.id,
+      strasse: apartment.address,
+      plz: "",
+      ort: "Berlin",
+      land: "Deutschland",
+      objektnr_extern: "",
+      lat: "",
+      lon: "",
+      titel: `DEGEWO: ${apartment.title}`,
+      preis: apartment.rent,
+      groesse: apartment.size,
+      anzahl_zimmer: apartment.rooms,
+      preview_img_url: apartment.imageUrl,
+      has_grundriss: false,
+      has_video: false,
+      slug: "",
+      images: apartment.imageUrl
+        ? [{ url: apartment.imageUrl, type: "image" }]
+        : [],
+    });
+
+    // Send custom message with proper formatting
+    const botToken = process.env.TELEGRAM_BOT_TOKEN!;
+    const chatId = process.env.TELEGRAM_CHAT_ID!;
+
+    await axios.post(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      chat_id: chatId,
+      text: message,
+      parse_mode: "Markdown",
+      disable_web_page_preview: false,
+    });
+
+    console.log(`✅ Degewo notification sent for: ${apartment.title}`);
+  } catch (error) {
+    console.error(
+      `❌ Error sending Degewo notification for ${apartment.title}:`,
+      error
+    );
+  }
+}
+
+async function processDegewoListings() {
+  console.log("🔄 Starting to process Degewo listings...");
+  try {
+    const html = await fetchDegewoListings();
+    const apartments = parseDegewoHTML(html);
+
+    console.log(`📊 Found ${apartments.length} Degewo apartments to process`);
+
+    for (const apartment of apartments) {
+      try {
+        console.log(`🔍 Checking Degewo listing: ${apartment.title}`);
+        const isSeen = await isDegewoListingSeen(apartment.id);
+        console.log(
+          `📌 Degewo listing ${apartment.title} seen status: ${isSeen}`
+        );
+
+        if (!isSeen) {
+          console.log(`✨ New Degewo listing found: ${apartment.title}`);
+          await sendDegewoNotification(apartment);
+          await markDegewoListingAsSeen(apartment.id);
+          console.log(
+            `✅ Completed processing for new Degewo listing: ${apartment.title}`
+          );
+        }
+      } catch (error) {
+        console.error(
+          `❌ Error processing Degewo listing ${apartment.title}:`,
+          error
+        );
+        continue;
+      }
+    }
+
+    console.log("✅ Finished processing all Degewo listings");
+  } catch (error) {
+    console.error("❌ Error in processDegewoListings:", error);
+  }
+}
+
 async function main() {
   console.log("🚀 Starting apartment bot...");
   try {
@@ -369,6 +698,19 @@ async function main() {
       async () => {
         console.log("🔄 Running scheduled Gewobag check...");
         await processGewobagListings();
+      },
+      {
+        timezone: "Europe/Berlin",
+      }
+    );
+
+    // Run Degewo check every 15 minutes from 7:00 to 22:00, Monday to Friday, Europe/Berlin time
+    console.log("⏰ Setting up Degewo cron job...");
+    cron.schedule(
+      "*/15 7-22 * * 1-5",
+      async () => {
+        console.log("🔄 Running scheduled Degewo check...");
+        await processDegewoListings();
       },
       {
         timezone: "Europe/Berlin",

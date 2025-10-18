@@ -45,3 +45,17 @@ export interface GewobagApartment {
   imageUrl: string; // First image URL
   googleMapsLink: string; // Generated from address
 }
+
+export interface DegewoApartment {
+  id: string; // immobilie-list-item-20208
+  address: string; // "Horstwalder Straße 3 | Lichtenrade"
+  title: string; // "Anmietung ab 50+ Jahren möglich"
+  size: string; // "40,37 m²"
+  rooms: string; // "2 Zimmer"
+  availableFrom: string; // "ab sofort"
+  rent: string; // "680,97 €"
+  features: string[]; // ["Balkon/Loggia", "Aufzug"]
+  link: string; // Direct link to apartment
+  imageUrl: string; // First image URL
+  googleMapsLink: string; // Generated from address
+}
