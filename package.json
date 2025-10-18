@@ -16,6 +16,9 @@
   ],
   "author": "",
   "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "dependencies": {
     "@types/axios": "^0.14.0",
     "@types/cheerio": "^0.22.35",
