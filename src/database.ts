@@ -23,10 +23,17 @@ export async function initializeDatabase() {
     await pool.query("SELECT NOW()");
     console.log("✅ PostgreSQL connection established");
 
-    // Create the table if it doesn't exist
+    // Create the tables if they don't exist
     await pool.query(`
       CREATE TABLE IF NOT EXISTS seen_listings (
         wrk_id TEXT PRIMARY KEY,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS gewobag_listings (
+        id TEXT PRIMARY KEY,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -81,6 +88,42 @@ export async function getSeenListings(): Promise<string[]> {
     return result.rows.map((row) => row.wrk_id);
   } catch (error) {
     console.error("❌ Error retrieving seen listings:", error);
+    throw error;
+  }
+}
+
+// Gewobag-specific database functions
+export async function isGewobagListingSeen(id: string): Promise<boolean> {
+  console.log(`🔍 Checking if Gewobag listing ${id} has been seen...`);
+  try {
+    if (!pool) throw new Error("Database not initialized");
+    const result = await pool.query(
+      "SELECT id FROM gewobag_listings WHERE id = $1",
+      [id]
+    );
+    const isSeen = result.rows.length > 0;
+    console.log(`📌 Gewobag listing ${id} seen status: ${isSeen}`);
+    return isSeen;
+  } catch (error) {
+    console.error(
+      `❌ Error checking if Gewobag listing ${id} has been seen:`,
+      error
+    );
+    throw error;
+  }
+}
+
+export async function markGewobagListingAsSeen(id: string) {
+  console.log(`📝 Marking Gewobag listing ${id} as seen...`);
+  try {
+    if (!pool) throw new Error("Database not initialized");
+    await pool.query(
+      "INSERT INTO gewobag_listings (id) VALUES ($1) ON CONFLICT (id) DO NOTHING",
+      [id]
+    );
+    console.log(`✅ Successfully marked Gewobag listing ${id} as seen`);
+  } catch (error) {
+    console.error(`❌ Error marking Gewobag listing ${id} as seen:`, error);
     throw error;
   }
 }

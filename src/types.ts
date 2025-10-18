@@ -34,3 +34,14 @@ export interface ApiResponse {
     previous: boolean;
   };
 }
+
+export interface GewobagApartment {
+  id: string; // post-197664
+  address: string; // "Gaudystr. 18, 10437 Berlin/Pankow"
+  title: string; // "Singlewohnung am Mauerpark"
+  size: string; // "35,94 m²"
+  rent: string; // "ab 682,06€"
+  link: string; // Direct link to apartment
+  imageUrl: string; // First image URL
+  googleMapsLink: string; // Generated from address
+}
