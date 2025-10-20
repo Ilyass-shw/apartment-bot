@@ -269,28 +269,6 @@ async function sendGewobagNotification(apartment: GewobagApartment) {
 🗺️ **Google Maps:** [View Location](${apartment.googleMapsLink})`;
 
   try {
-    await sendApplicationConfirmation({
-      wrk_id: apartment.id,
-      strasse: apartment.address,
-      plz: "",
-      ort: "Berlin",
-      land: "Deutschland",
-      objektnr_extern: "",
-      lat: "",
-      lon: "",
-      titel: `GEWOBAG: ${apartment.title}`,
-      preis: apartment.rent,
-      groesse: apartment.size,
-      anzahl_zimmer: "",
-      preview_img_url: apartment.imageUrl,
-      has_grundriss: false,
-      has_video: false,
-      slug: "",
-      images: apartment.imageUrl
-        ? [{ url: apartment.imageUrl, type: "image" }]
-        : [],
-    });
-
     // Send custom message with proper formatting
     const botToken = process.env.TELEGRAM_BOT_TOKEN!;
     const chatId = process.env.TELEGRAM_CHAT_ID!;
@@ -512,7 +490,7 @@ function parseDegewoHTML(html: string): DegewoApartment[] {
       rooms: "",
       availableFrom: "",
       rent: $apartment.find(".article__price-tag .price").text().trim(),
-      link: $apartment.find("a").attr("href") || "",
+      link: "",
       imageUrl:
         $apartment.find("img").attr("src") ||
         $apartment.find("img").attr("data-srcset")?.split(" ")[0] ||
@@ -542,6 +520,19 @@ function parseDegewoHTML(html: string): DegewoApartment[] {
     $apartment.find(".article__tags-item").each((i, tag) => {
       apartment.features.push($(tag).text().trim());
     });
+
+    // Extract link - try multiple selectors
+    const link1 = $apartment.find("a").first().attr("href");
+    const link2 = $apartment.find(".article__title a").attr("href");
+    const link3 = $apartment.find("h3 a").attr("href");
+    const link4 = $apartment.find("[href*='/mieten/']").attr("href");
+
+    const rawLink = link1 || link2 || link3 || link4;
+    if (rawLink) {
+      apartment.link = rawLink.startsWith("http")
+        ? rawLink
+        : `https://www.degewo.de${rawLink}`;
+    }
 
     // Generate Google Maps link
     if (apartment.address) {
@@ -581,28 +572,6 @@ async function sendDegewoNotification(apartment: DegewoApartment) {
 🗺️ **Google Maps:** [View Location](${apartment.googleMapsLink})`;
 
   try {
-    await sendApplicationConfirmation({
-      wrk_id: apartment.id,
-      strasse: apartment.address,
-      plz: "",
-      ort: "Berlin",
-      land: "Deutschland",
-      objektnr_extern: "",
-      lat: "",
-      lon: "",
-      titel: `DEGEWO: ${apartment.title}`,
-      preis: apartment.rent,
-      groesse: apartment.size,
-      anzahl_zimmer: apartment.rooms,
-      preview_img_url: apartment.imageUrl,
-      has_grundriss: false,
-      has_video: false,
-      slug: "",
-      images: apartment.imageUrl
-        ? [{ url: apartment.imageUrl, type: "image" }]
-        : [],
-    });
-
     // Send custom message with proper formatting
     const botToken = process.env.TELEGRAM_BOT_TOKEN!;
     const chatId = process.env.TELEGRAM_CHAT_ID!;
